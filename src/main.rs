@@ -9,7 +9,43 @@ pub mod schema;
 
 use crate::model::*;
 use crate::schema::*;
-fn main() {
+
+fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let conn = &mut establish_connection();
+    setup_data(conn)?;
+
+    one_to_n_relations(conn)?;
+    joins(conn)?;
+    m_to_n_relations(conn)?;
+    Ok(())
+}
+
+fn setup_data(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // create a book
+    let momo = new_book(conn, "Momo")?;
+
+    // a page in that book
+    new_page(conn, 1, "In alten, alten Zeiten ...", momo.id)?;
+    // a second page
+    new_page(conn, 2, "den prachtvollen Theatern...", momo.id)?;
+
+    // create an author
+    let michael_ende = new_author(conn, "Michael Ende")?;
+
+    // let's add the author to the already created book
+    new_books_author(conn, momo.id, michael_ende.id)?;
+
+    // create a second author
+    let astrid_lindgren = new_author(conn, "Astrid Lindgren")?;
+    let pippi = new_book(conn, "Pippi Långstrump")?;
+    new_books_author(conn, pippi.id, astrid_lindgren.id)?;
+
+    // now that both have a single book, let's add a third book, an imaginary collaboration
+    let collaboration = new_book(conn, "Pippi and Momo")?;
+    new_books_author(conn, collaboration.id, astrid_lindgren.id)?;
+    new_books_author(conn, collaboration.id, michael_ende.id)?;
+
+    Ok(())
 }
 
 
@@ -115,4 +151,88 @@ fn m_to_n_relations(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error + S
     println!("All authors including their books: {books_per_author:?}");
 
     Ok(())
+}
+
+fn new_author(conn: &mut SqliteConnection, name: &str) -> Result<Author, Box<dyn Error + Send + Sync>> {
+    let results =
+    conn.transaction::<_, diesel::result::Error, _>(|conn: &mut SqliteConnection| {
+        let inserted_count = diesel::insert_into(authors::table)
+            .values(authors::name.eq(name))
+            .execute(conn)?;
+
+        Ok(authors::table
+            .order(authors::dsl::id.desc())
+            .limit(inserted_count as i64)
+            .select(Author::as_select())
+            .load(conn))
+    }).unwrap();
+    let author = (&results.unwrap()[0]).to_owned();
+    Ok(author)
+}
+
+fn new_book(conn: &mut SqliteConnection, title: &str) -> Result<Book, Box<dyn Error + Send + Sync>> {
+    let results =
+    conn.transaction::<_, diesel::result::Error, _>(|conn: &mut SqliteConnection| {
+        let inserted_count = diesel::insert_into(books::table)
+            .values(books::title.eq(title))
+            .execute(conn)?;
+
+        Ok(books::table
+            .order(books::dsl::id.desc())
+            .limit(inserted_count as i64)
+            .select(Book::as_select())
+            .load(conn))
+    }).unwrap();
+    let book = (&results.unwrap()[0]).to_owned();
+    Ok(book)
+}
+
+fn new_books_author(
+    conn: &mut SqliteConnection,
+    book_id: i32,
+    author_id: i32,
+) -> Result<BookAuthor, Box<dyn Error + Send + Sync>> {
+    let results =
+    conn.transaction::<_, diesel::result::Error, _>(|conn: &mut SqliteConnection| {
+        let inserted_count = diesel::insert_into(books_authors::table)
+            .values((
+                books_authors::book_id.eq(book_id),
+                books_authors::author_id.eq(author_id),
+            ))
+            .execute(conn)?;
+
+        Ok(books_authors::table
+            .order(books_authors::dsl::id.desc())
+            .limit(inserted_count as i64)
+            .select(BookAuthor::as_select())
+            .load(conn))
+    }).unwrap();
+    let book_author = (&results.unwrap()[0]).to_owned();
+    Ok(book_author)
+}
+
+fn new_page(
+    conn: &mut SqliteConnection,
+    page_number: i32,
+    content: &str,
+    book_id: i32,
+) -> Result<Page, Box<dyn Error + Send + Sync>> {
+    let results =
+    conn.transaction::<_, diesel::result::Error, _>(|conn: &mut SqliteConnection| {
+        let inserted_count = diesel::insert_into(pages::table)
+            .values((
+                pages::page_number.eq(page_number),
+                pages::content.eq(content),
+                pages::book_id.eq(book_id),
+            ))
+            .execute(conn)?;
+
+        Ok(pages::table
+            .order(pages::dsl::id.desc())
+            .limit(inserted_count as i64)
+            .select(Page::as_select())
+            .load(conn))
+    }).unwrap();
+    let page = &results.unwrap()[0];
+    Ok(page.to_owned())
 }

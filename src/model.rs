@@ -2,14 +2,14 @@ use diesel::prelude::*;
 
 use crate::schema::{books, pages, authors, books_authors};
 
-#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq, Clone)]
 #[diesel(table_name = books)]
 pub struct Book {
     pub id: i32,
     pub title: String,
 }
 
-#[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq)]
+#[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
 #[diesel(belongs_to(Book))]
 #[diesel(table_name = pages)]
 pub struct Page {
@@ -19,14 +19,14 @@ pub struct Page {
     pub book_id: i32,
 }
 
-#[derive(Queryable, Selectable, Identifiable, PartialEq, Debug)]
+#[derive(Queryable, Selectable, Identifiable, PartialEq, Debug, Clone)]
 #[diesel(table_name = authors)]
 pub struct Author {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(Identifiable, Selectable, Queryable, Associations, Debug)]
+#[derive(Identifiable, Selectable, Queryable, Associations, Debug, Clone)]
 #[diesel(belongs_to(Book))]
 #[diesel(belongs_to(Author))]
 #[diesel(table_name = books_authors)]
