@@ -71,3 +71,48 @@ fn one_to_n_relations(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error +
 
     Ok(())
 }
+
+fn m_to_n_relations(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let astrid_lindgren = authors::table
+        .filter(authors::name.eq("Astrid Lindgren"))
+        .select(Author::as_select())
+        .get_result(conn)?;
+
+    // get all of Astrid Lindgren's books
+    let books = BookAuthor::belonging_to(&astrid_lindgren)
+        .inner_join(books::table)
+        .select(Book::as_select())
+        .load(conn)?;
+    println!("Asgrid Lindgren books: {books:?}");
+
+    let collaboration = books::table
+        .filter(books::title.eq("Pippi and Momo"))
+        .select(Book::as_select())
+        .get_result(conn)?;
+
+    // get authors for the collaboration
+    let authors = BookAuthor::belonging_to(&collaboration)
+        .inner_join(authors::table)
+        .select(Author::as_select())
+        .load(conn)?;
+    println!("Authors for \"Pipi and Momo\": {authors:?}");
+
+    // get a list of authors with all their books
+    let all_authors = authors::table.select(Author::as_select()).load(conn)?;
+
+    let books = BookAuthor::belonging_to(&authors)
+        .inner_join(books::table)
+        .select((BookAuthor::as_select(), Book::as_select()))
+        .load(conn)?;
+
+    let books_per_author: Vec<(Author, Vec<Book>)> = books
+        .grouped_by(&all_authors)
+        .into_iter()
+        .zip(authors)
+        .map(|(b, author)| (author, b.into_iter().map(|(_, book)| book).collect()))
+        .collect();
+
+    println!("All authors including their books: {books_per_author:?}");
+
+    Ok(())
+}
