@@ -21,6 +21,24 @@ fn establish_connection() -> SqliteConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {database_url}"))
 }
 
+fn joins(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let page_with_book = pages::table
+        .inner_join(books::table)
+        .filter(books::title.eq("Momo"))
+        .select((Page::as_select(), Book::as_select()))
+        .load::<(Page, Book)>(conn)?;
+
+    println!("Page-Book pairs: {page_with_book:?}");
+
+    let book_without_pages = books::table
+        .left_join(pages::table)
+        .select((Book::as_select(), Option::<Page>::as_select()))
+        .load::<(Book, Option<Page>)>(conn)?;
+
+    println!("Book-Page pairs (including empty books): {book_without_pages:?}");
+    Ok(())
+}
+
 fn one_to_n_relations(conn: &mut SqliteConnection) -> Result<(), Box<dyn Error + Send + Sync>> {
     let momo = books::table
         .filter(books::title.eq("Momo"))
