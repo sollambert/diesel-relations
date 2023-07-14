@@ -1,9 +1,24 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    authors (id) {
+        id -> Integer,
+        name -> Text,
+    }
+}
+
+diesel::table! {
     books (id) {
         id -> Integer,
         title -> Text,
+    }
+}
+
+diesel::table! {
+    books_authors (id) {
+        id -> Integer,
+        book_id -> Integer,
+        author_id -> Integer,
     }
 }
 
@@ -16,9 +31,13 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(books_authors -> authors (author_id));
+diesel::joinable!(books_authors -> books (book_id));
 diesel::joinable!(pages -> books (book_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    authors,
     books,
+    books_authors,
     pages,
 );
